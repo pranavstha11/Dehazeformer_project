@@ -3,6 +3,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 from pytorch_msssim import ssim
 from torch.utils.data import DataLoader
 from collections import OrderedDict
@@ -18,7 +19,7 @@ parser.add_argument('--num_workers', default=16, type=int, help='number of worke
 parser.add_argument('--data_dir', default='./data/', type=str, help='path to dataset')
 parser.add_argument('--save_dir', default='./saved_models/', type=str, help='path to models saving')
 parser.add_argument('--result_dir', default='./results/', type=str, help='path to results saving')
-parser.add_argument('--dataset', default='RESIDE-IN', type=str, help='dataset name')
+parser.add_argument('--dataset', default='RESIDE-6K', type=str, help='dataset name')
 parser.add_argument('--exp', default='indoor', type=str, help='experiment setting')
 args = parser.parse_args()
 
@@ -66,6 +67,8 @@ def test(test_loader, network, result_dir):
 							F.adaptive_avg_pool2d(target, (int(H / down_ratio), int(W / down_ratio))), 
 							data_range=1, size_average=False).item()				
 
+		input = input * 0.5 + 0.5
+
 		PSNR.update(psnr_val)
 		SSIM.update(ssim_val)
 
@@ -76,7 +79,30 @@ def test(test_loader, network, result_dir):
 
 		f_result.write('%s,%.02f,%.03f\n'%(filename, psnr_val, ssim_val))
 
+		input_img = chw_to_hwc(input.detach().cpu().squeeze(0).numpy())
+		target_img = chw_to_hwc(target.detach().cpu().squeeze(0).numpy())
 		out_img = chw_to_hwc(output.detach().cpu().squeeze(0).numpy())
+
+		fig = plt.figure(figsize=(10,8))
+		fig.add_subplot(2,2,(1,3))
+		plt.title('Input image')
+		plt.imshow(input_img)
+		plt.axis('off')
+
+		fig.add_subplot(2,2,2)
+		plt.title('Output image')
+		plt.imshow(out_img)
+		plt.axis('off')
+		
+		fig.add_subplot(2,2,4)
+		plt.title('Ground Truth')
+		plt.imshow(target_img)
+		plt.axis('off')
+
+		mng = plt.get_current_fig_manager()
+		mng.full_screen_toggle()
+		plt.show()
+
 		write_img(os.path.join(result_dir, 'imgs', filename), out_img)
 
 	f_result.close()
